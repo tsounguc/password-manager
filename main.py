@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import messagebox
 from random import choice, randint, shuffle
 import pyperclip
+import json
 
 
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
@@ -28,10 +29,10 @@ def generate_password():
                                                                              "password entered?")
         if can_clear:
             password_input.delete(0, END)
-            password_input.insert(0,  password)
+            password_input.insert(0, password)
             pyperclip.copy(password)
     else:
-        password_input.insert(0,  password)
+        password_input.insert(0, password)
         pyperclip.copy(password)
 
 
@@ -41,17 +42,50 @@ def save_data():
     email_username = email_username_input.get()
     password = password_input.get()
 
+    new_data = {
+        website: {
+            "email": email_username,
+            "password": password
+        }
+    }
+
     if website == "" or email_username == "" or password == "":
         messagebox.showinfo(title="Invalid Information", message="Please don't leave any field empty")
     else:
-        is_ok = messagebox.askokcancel(title=website,
-                                       message=f"These are the details entered: \nEmail/Username: {email_username} "
-                                               f"\nPassword: {password} \nIs it ok to save?")
-        if is_ok:
-            with open("data.txt", mode="a") as file:
-                file.write(f"{website} | {email_username} | {password}\n")
-                website_input.delete(0, END)
-                password_input.delete(0, END)
+        try:
+            with open("data.json", mode="r") as file:
+                # Reading old data
+                data = json.load(file)
+        except json.decoder.JSONDecodeError:
+            json.dump(new_data, file, indent=4)
+        except FileNotFoundError:
+            with open("data.json", mode="w") as file:
+                json.dump(new_data, file, indent=4)
+        else:
+            # Update old data with new data
+            data.update(new_data)
+            # Saving updated data
+            with open("data.json", mode="w") as file:
+                json.dump(data, file, indent=4)
+        finally:
+            website_input.delete(0, END)
+            password_input.delete(0, END)
+
+
+def search_data():
+    search_value = website_input.get().title()
+    try:
+        with open("data.json", mode="r") as file:
+            data = json.load(file)
+            email = data[search_value]["email"]
+            password = data[search_value]["password"]
+            messagebox.showinfo(title=search_value, message=f"Email: {email} \nPassword: {password}")
+    except KeyError:
+        messagebox.showinfo(title=search_value, message=f"Email and Password doesn't exist for {search_value.title()}")
+    except FileNotFoundError:
+        messagebox.showinfo(title=search_value, message=f"Email and Password doesn't exist for {search_value.title()}")
+    except json.decoder.JSONDecodeError:
+        messagebox.showinfo(title=search_value, message=f"Email and Password doesn't exist for {search_value.title()}")
 
 
 # ---------------------------- UI SETUP ------------------------------- #
@@ -72,6 +106,9 @@ website_input = Entry(width=55)
 website_input.grid(row=1, column=1, columnspan=2)
 website_input.focus()
 
+search_button = Button(text="Search", width=15, command=search_data)
+search_button.grid(row=1, column=2, columnspan=1)
+
 email_username_label = Label(text="Email/Username:")
 email_username_label.grid(row=2, column=0)
 
@@ -85,7 +122,7 @@ password_label.grid(row=3, column=0)
 password_input = Entry(width=36)
 password_input.grid(row=3, column=1, columnspan=1)
 
-generate_password_button = Button(text="Generate Password", width=15, command= generate_password)
+generate_password_button = Button(text="Generate Password", width=15, command=generate_password)
 generate_password_button.grid(row=3, column=2, columnspan=1)
 
 add_button = Button(text="Add", width=47, command=save_data)
